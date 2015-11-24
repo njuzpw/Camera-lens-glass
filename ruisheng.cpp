@@ -10,7 +10,7 @@ using namespace cv;
 string fold_path = "./1124/";
 string img_name = "1.bmp";
 string img_path = fold_path + img_name;
-string write_path = "~/Project/Camera-lens-glassFiles/save";
+string write_path = "../Camera-lens-glassFiles/save/";
 
 
 void show(const vector<Point>& vec)
