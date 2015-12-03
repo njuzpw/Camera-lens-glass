@@ -21,6 +21,51 @@ void show(const vector<Point>& vec)
 	}
 }
 
+void my_boxFilter(Mat src, Mat& mean,int blockWidth,int blockHeight)
+{
+	int halfwidth = (blockWidth - 1)/2;
+	int halfheight = (blockHeight - 1)/2;
+	for(int i = 0; i != src.rows; ++i)
+		for(int j = 0; j != src.cols; ++j)
+		{
+			int xstart = (j - halfwidth >= 0) ? (j - halfwidth) : 0;
+			int ystart = (i - halfheight >= 0) ? (i - halfheight) : 0;
+			int xend = (j + halfwidth < src.cols) ? (j + halfwidth) : src.cols - 1;
+			int yend = (i + halfheight < src.rows) ? (i + halfheight) : src.rows - 1;
+			int count(0);
+			int sum(0);
+			for(int m = xstart; m <= xend; ++m)
+				for(int n = ystart; n <= yend; ++n)
+				{
+					if(src.at<uchar>(n,m) != 0)
+					{
+						sum += src.at<uchar>(n,m);
+						++count;
+					}
+				}
+			if(count == 0)
+				mean.at<uchar>(i,j) = 0;
+			else
+				mean.at<uchar>(i,j) = sum / count;
+		}
+	imshow("mean",mean);
+}
+
+
+void my_adaptiveThreshold(Mat src,Mat& dst,int blockWidth,int blockHeight,int c)
+{
+	Mat mean = Mat::zeros(src.size(),CV_8UC1);
+	my_boxFilter(src,mean,blockWidth,blockHeight);
+	for(int i = 0; i != src.rows; ++i)
+		for(int j = 0; j != src.cols; ++j)
+		{
+			if(int(src.at<uchar>(i,j)) - int(mean.at<uchar>(i,j)) >= c)
+				dst.at<uchar>(i,j) = 255;
+			else
+				dst.at<uchar>(i,j) = 0;
+		}
+}
+
 
 Mat  findCircleMask(const Mat& _src)
 {
@@ -166,7 +211,7 @@ void process(char** argv)
 {
 	Mat src = imread(argv[1], 0);
 	//pyrDown(src, src);
-	pyrDown(src, src);
+	//pyrDown(src, src);
 	Mat mask = findCircleMask(src);
 	cvtColor(mask, mask, CV_BGR2GRAY);
 #ifdef debug
@@ -176,29 +221,50 @@ void process(char** argv)
 	erode(mask, mask, Mat());
 	erode(mask, mask, Mat());
 	bitwise_and(mask, src, and_img);
+
+	// Mat mean = Mat::zeros(and_img.size(),CV_8UC1);
+	// my_boxFilter(and_img,mean,7,7);
+
 #ifdef debug
 	imwrite(write_path + "seg_img.bmp", and_img);
 	imshow("seg_img", and_img);
 #endif
-	adaptiveThreshold(and_img, and_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 7, -3);
-
-	//getRidOfThreshEdges(and_img);
+	//adaptiveThreshold(and_img, and_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 7, -3);
+	Mat adaptiveThresholdResult = Mat::zeros(src.size(),CV_8UC1);
+	my_adaptiveThreshold(and_img,adaptiveThresholdResult,7,7,3);
 	Mat res;
-	erode(mask, mask, Mat());
-	erode(mask, mask, Mat());
-	bitwise_and(and_img, mask, res);
+	//erode(mask, mask, Mat());
+	//erode(mask, mask, Mat());
+	bitwise_and(adaptiveThresholdResult, mask, res);
 #ifdef debug
-	imshow("and_img", and_img);
+	imshow("and_img", adaptiveThresholdResult);
+	imwrite(write_path + "and_img_1.bmp",adaptiveThresholdResult);
 	imwrite(write_path + "and_img.bmp",res);
 	imshow("res", res);
 	imwrite(write_path + "res.bmp",res);
 #endif
 }
 
+// Mat getRidOfBoundsMask(Mat& src)
+// {
+// 	vector<Point> whitePos;
+// 	for(int i = 0; i != src.rows;++i)
+// 		for(int j = 0; j != src.cols; ++j)
+// 		{
+// 			if(src.at<uchar>(i,j) == 255)
+// 				whitePos.push_back(Point(j,i));
+// 		}
+// 	Point2f center;
+// 	float radius;
+// 	minEnclosingCircle(whitePos,center,radius);
+// 	Mat canvas = Mat::zeros(src.size(),CV_8UC1);
+// 	circle(canvas, center, radius, Scalar(255, 255, 255), -1, 8, 0);
+// 	imshow("drawCanvas",canvas);
+// 	return canvas;
+// }
+
 int main(int argc,char** argv)
 {
-	/*Mat mask = findCircleMask();
-	imshow("mask", mask);*/
 	process(argv);
 	waitKey(0);
 	return 0;
