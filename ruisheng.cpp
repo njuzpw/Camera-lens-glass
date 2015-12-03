@@ -145,10 +145,27 @@ Mat  findCircleMask(const Mat& _src)
 	return ans;
 }
 
+void getRidOfThreshEdges(Mat& thresholdResult)
+{
+	imshow("thresholdResult",thresholdResult);
+	Point2f center;
+	float radius(0);
+	Mat src = thresholdResult.clone();
+	Mat cont_src = thresholdResult.clone();
+	Mat cont_canvas = Mat::zeros(thresholdResult.size(),CV_8UC3);
+	vector< vector<Point> > cont;
+	findContours(cont_src,cont,CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+	minEnclosingCircle(cont[0],center,radius);
+	Mat canvas = Mat::zeros(thresholdResult.size(),CV_8UC3);
+	circle(canvas,center,radius,Scalar(0,255,0),-1,8,0);
+	imshow("fill_canva",canvas);
+	return;
+}
+
 void process(char** argv)
 {
 	Mat src = imread(argv[1], 0);
-	pyrDown(src, src);
+	//pyrDown(src, src);
 	pyrDown(src, src);
 	Mat mask = findCircleMask(src);
 	cvtColor(mask, mask, CV_BGR2GRAY);
@@ -164,12 +181,14 @@ void process(char** argv)
 	imshow("seg_img", and_img);
 #endif
 	adaptiveThreshold(and_img, and_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 7, -3);
+
+	//getRidOfThreshEdges(and_img);
 	Mat res;
 	erode(mask, mask, Mat());
 	erode(mask, mask, Mat());
 	bitwise_and(and_img, mask, res);
 #ifdef debug
-	//imshow("and_img", res);
+	imshow("and_img", and_img);
 	imwrite(write_path + "and_img.bmp",res);
 	imshow("res", res);
 	imwrite(write_path + "res.bmp",res);
