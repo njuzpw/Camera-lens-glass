@@ -2,6 +2,7 @@
 #include "cv.h"
 #include "highgui.h"
 #include <string>
+#include <ctime>
 using namespace std;
 using namespace cv;
 
@@ -20,7 +21,6 @@ void show(const vector<Point>& vec)
 		cout << "(" << vec[i].x << "," << vec[i].y << ")" << endl;
 	}
 }
-
 void my_boxFilter(Mat src, Mat& mean,int blockWidth,int blockHeight)
 {
 	int halfwidth = (blockWidth - 1)/2;
@@ -48,7 +48,9 @@ void my_boxFilter(Mat src, Mat& mean,int blockWidth,int blockHeight)
 			else
 				mean.at<uchar>(i,j) = sum / count;
 		}
+#ifdef debug
 	imshow("mean",mean);
+#endif
 }
 
 
@@ -66,6 +68,37 @@ void my_adaptiveThreshold(Mat src,Mat& dst,int blockWidth,int blockHeight,int c)
 		}
 }
 
+Mat get_pic_dis_withCircleSeedPoints(Mat res, Mat orign)
+{
+	Mat orignSave = orign.clone();
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	erode(res,res,Mat());
+	vector<vector<Point> > CircleSeedPoints;
+	cvtColor(res, res, CV_BGR2GRAY);
+	findContours(res, CircleSeedPoints, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+	for (int i = 0; i < CircleSeedPoints[0].size(); ++i)
+	{
+		if(orign.at<uchar>(CircleSeedPoints[0][i].y,CircleSeedPoints[0][i].x) == 0)
+			floodFill(orign, CircleSeedPoints[0][i], Scalar(255, 255, 255));
+	}
+	Mat pic_dis = orign - orignSave;
+#ifdef debug
+	imshow("get_pic_dis_withCircleSeedPoints",pic_dis);
+	imwrite(write_path + "get_pic_dis_withCircleSeedPoints.bmp", pic_dis);	
+#endif
+	return pic_dis;
+}
 
 Mat  findCircleMask(const Mat& _src)
 {
@@ -77,9 +110,11 @@ Mat  findCircleMask(const Mat& _src)
 	threshold(src, src, 0, 255, THRESH_BINARY | CV_THRESH_OTSU);
 	Mat	binary_src = src.clone();
 	Mat flood_binary_src = src.clone();
-
+	Mat flood_binary_src_withCircleSeedPoints = src.clone();
+#ifdef debug
 	imshow("src", src);
 	imwrite(write_path + "src.bmp", src);
+#endif
 	cvtColor(src, src, CV_GRAY2BGR);
 	if (!src.data)
 	{
@@ -108,8 +143,8 @@ Mat  findCircleMask(const Mat& _src)
 			center.y = circles[i][1];
 		}
 	}
-	cout << "randius" << radius << endl;
-	cout << "(" << center.x << "," << center.y << ")" << endl<<endl;
+	//cout << "randius" << radius << endl;
+	//cout << "(" << center.x << "," << center.y << ")" << endl<<endl;
 	vector<Point> seedPoints;
 	Point TempSeedPoint;
 	int dis = int(radius / 2 / 1.414);
@@ -165,7 +200,7 @@ Mat  findCircleMask(const Mat& _src)
 #endif
 	Mat pic_dis = flood_binary_src - binary_src;
 	
-	//下面是获取所含形状的外接圆
+	//脧脗脙忙脢脟禄帽脠隆脣霉潞卢脨脦脳麓碌脛脥芒陆脫脭虏
 	Point2f enclosing_cecter;
 	float enclosing_radius(0);
 	threshold(pic_dis, pic_dis, 150, 255, THRESH_BINARY);
@@ -175,25 +210,26 @@ Mat  findCircleMask(const Mat& _src)
 #endif
 
 //**********************according Circumcircle to get mask****************************
-// 	vector< vector<Point> > cont;
-// 	findContours(pic_dis, cont, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-// 	Mat canvas = Mat::zeros(src.size(), CV_8UC3);
-// 	Mat ans = canvas.clone();
-// 	drawContours(canvas, cont, -1, Scalar(255, 255, 255));
-// 	minEnclosingCircle(cont[0], enclosing_cecter, enclosing_radius);
-// 	cout << "enclosing_radius" << enclosing_radius << endl;
-// 	circle(ans, enclosing_cecter, enclosing_radius, Scalar(255, 255, 255), -1, 8, 0);
-// 	threshold(ans, ans, 150, 255, THRESH_BINARY);
-// #ifdef debug
-// 	imwrite(write_path + "ans.bmp",ans);
-// 	//imshow("ans", ans);
-// #endif
-// 	show(seedPoints);
-// 	return ans;
+	vector< vector<Point> > cont;
+	findContours(pic_dis, cont, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+	Mat canvas = Mat::zeros(src.size(), CV_8UC3);
+	Mat ans = canvas.clone();
+	drawContours(canvas, cont, -1, Scalar(255, 255, 255));
+	minEnclosingCircle(cont[0], enclosing_cecter, enclosing_radius);
+	cout << "enclosing_radius" << enclosing_radius << endl;
+	circle(ans, enclosing_cecter, enclosing_radius, Scalar(255, 255, 255), -1, 8, 0);
+	threshold(ans, ans, 150, 255, THRESH_BINARY);
+#ifdef debug
+	imwrite(write_path + "ans.bmp",ans);
+	//imshow("ans", ans);
+#endif
+	//show(seedPoints);
+	//return ans;
 //***********************************************************************************
 
 //**********************according convexHull to get mask*****************************
-	Mat pic_disCopy = pic_dis.clone();
+	//Mat pic_disCopy = pic_dis.clone();
+	Mat pic_disCopy = get_pic_dis_withCircleSeedPoints(ans,flood_binary_src_withCircleSeedPoints);
 	vector< vector<Point> > convexHullcont;
 	vector<Vec4i> hierarchy;
 	findContours(pic_disCopy,convexHullcont,hierarchy,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
@@ -209,14 +245,19 @@ Mat  findCircleMask(const Mat& _src)
 	}
 #ifdef debug
 	imshow("drawing",drawing);
+	imwrite(write_path + "drawing.bmp",drawing);
 	//waitKey(0);
 #endif
+	//pyrUp(drawing,drawing);
+	//pyrUp(drawing,drawing);
 	return drawing;
 }
 
 void getRidOfThreshEdges(Mat& thresholdResult)
 {
+#ifdef debug
 	imshow("thresholdResult",thresholdResult);
+#endif
 	Point2f center;
 	float radius(0);
 	Mat src = thresholdResult.clone();
@@ -227,7 +268,9 @@ void getRidOfThreshEdges(Mat& thresholdResult)
 	minEnclosingCircle(cont[0],center,radius);
 	Mat canvas = Mat::zeros(thresholdResult.size(),CV_8UC3);
 	circle(canvas,center,radius,Scalar(0,255,0),-1,8,0);
+#ifdef debug
 	imshow("fill_canva",canvas);
+#endif
 	return;
 }
 
@@ -289,8 +332,13 @@ void process(char** argv)
 
 int main(int argc,char** argv)
 {
+	double t = (double)getTickCount();
 	process(argv);
+	t = ((double)getTickCount() - t)/getTickFrequency();
+	cout <<"program time = " << t*1000.0 << "ms" << endl;
+#ifdef debug
 	waitKey(0);
+#endif
 	return 0;
 }
 
