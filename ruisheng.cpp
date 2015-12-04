@@ -173,21 +173,45 @@ Mat  findCircleMask(const Mat& _src)
 	imwrite(write_path + "pic_dis.bmp", pic_dis);
 	//imshow("pic_dis", pic_dis);
 #endif
-	vector< vector<Point> > cont;
-	findContours(pic_dis, cont, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
-	Mat canvas = Mat::zeros(src.size(), CV_8UC3);
-	Mat ans = canvas.clone();
-	drawContours(canvas, cont, -1, Scalar(255, 255, 255));
-	minEnclosingCircle(cont[0], enclosing_cecter, enclosing_radius);
-	cout << "enclosing_radius" << enclosing_radius << endl;
-	circle(ans, enclosing_cecter, enclosing_radius, Scalar(255, 255, 255), -1, 8, 0);
-	threshold(ans, ans, 150, 255, THRESH_BINARY);
+
+//**********************according Circumcircle to get mask****************************
+// 	vector< vector<Point> > cont;
+// 	findContours(pic_dis, cont, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_NONE);
+// 	Mat canvas = Mat::zeros(src.size(), CV_8UC3);
+// 	Mat ans = canvas.clone();
+// 	drawContours(canvas, cont, -1, Scalar(255, 255, 255));
+// 	minEnclosingCircle(cont[0], enclosing_cecter, enclosing_radius);
+// 	cout << "enclosing_radius" << enclosing_radius << endl;
+// 	circle(ans, enclosing_cecter, enclosing_radius, Scalar(255, 255, 255), -1, 8, 0);
+// 	threshold(ans, ans, 150, 255, THRESH_BINARY);
+// #ifdef debug
+// 	imwrite(write_path + "ans.bmp",ans);
+// 	//imshow("ans", ans);
+// #endif
+// 	show(seedPoints);
+// 	return ans;
+//***********************************************************************************
+
+//**********************according convexHull to get mask*****************************
+	Mat pic_disCopy = pic_dis.clone();
+	vector< vector<Point> > convexHullcont;
+	vector<Vec4i> hierarchy;
+	findContours(pic_disCopy,convexHullcont,hierarchy,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
+	vector<vector<Point> > hull(convexHullcont.size());
+	for( int i = 0; i < convexHullcont.size(); i++ )
+    {  
+      	convexHull( Mat(convexHullcont[i]), hull[i], false ); 
+    }
+	Mat drawing = Mat::zeros(pic_disCopy.size(), CV_8UC3 );
+	for(int i = 0; i != convexHullcont.size(); ++i)
+	{
+		drawContours( drawing, hull, i, Scalar(255,255,255), -1, 8, vector<Vec4i>(), 0, Point() );
+	}
 #ifdef debug
-	imwrite(write_path + "ans.bmp",ans);
-	//imshow("ans", ans);
+	imshow("drawing",drawing);
+	//waitKey(0);
 #endif
-	show(seedPoints);
-	return ans;
+	return drawing;
 }
 
 void getRidOfThreshEdges(Mat& thresholdResult)
@@ -218,8 +242,8 @@ void process(char** argv)
 	imshow("mask", mask);
 #endif
 	Mat and_img = Mat::zeros(src.size(),CV_8UC1);
-	erode(mask, mask, Mat());
-	erode(mask, mask, Mat());
+	//erode(mask, mask, Mat());
+	//erode(mask, mask, Mat());
 	bitwise_and(mask, src, and_img);
 
 	// Mat mean = Mat::zeros(and_img.size(),CV_8UC1);
@@ -231,10 +255,10 @@ void process(char** argv)
 #endif
 	//adaptiveThreshold(and_img, and_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 7, -3);
 	Mat adaptiveThresholdResult = Mat::zeros(src.size(),CV_8UC1);
-	my_adaptiveThreshold(and_img,adaptiveThresholdResult,7,7,3);
+	my_adaptiveThreshold(and_img,adaptiveThresholdResult,7,7,5);
 	Mat res;
-	//erode(mask, mask, Mat());
-	//erode(mask, mask, Mat());
+	erode(mask, mask, Mat());
+	erode(mask, mask, Mat());
 	bitwise_and(adaptiveThresholdResult, mask, res);
 #ifdef debug
 	imshow("and_img", adaptiveThresholdResult);
