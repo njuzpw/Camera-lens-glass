@@ -274,12 +274,8 @@ void getRidOfThreshEdges(Mat& thresholdResult)
 	return;
 }
 
-void process(char** argv)
+Mat findThreshResult(Mat src,Mat mask)
 {
-	Mat src = imread(argv[1], 0);
-	//pyrDown(src, src);
-	//pyrDown(src, src);
-	Mat mask = findCircleMask(src);
 	cvtColor(mask, mask, CV_BGR2GRAY);
 #ifdef debug
 	imshow("mask", mask);
@@ -310,6 +306,16 @@ void process(char** argv)
 	imshow("res", res);
 	imwrite(write_path + "res.bmp",res);
 #endif
+	return res;
+}
+
+void process(char** argv)
+{
+	Mat src = imread(argv[1], 0);
+	//pyrDown(src, src);
+	//pyrDown(src, src);
+	Mat mask = findCircleMask(src);
+	Mat threshResult = findThreshResult(src,mask);
 }
 
 // Mat getRidOfBoundsMask(Mat& src)
