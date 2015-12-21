@@ -190,10 +190,20 @@ void my_adaptiveThreshold(Mat src,Mat& dst,int blockWidth,int blockHeight,int c)
 	for(int i = 0; i != src.rows; ++i)
 		for(int j = 0; j != src.cols; ++j)
 		{
-			if(int(src.at<uchar>(i,j)) - int(mean.at<uchar>(i,j)) >= c)
-				dst.at<uchar>(i,j) = 255;
-			else
-				dst.at<uchar>(i,j) = 0;
+			if( c > 0)
+			{
+				if(int(src.at<uchar>(i,j)) - int(mean.at<uchar>(i,j)) >= c)
+					dst.at<uchar>(i,j) = 255;
+				else
+					dst.at<uchar>(i,j) = 0;
+			}
+			if( c < 0)
+			{
+				if(int(src.at<uchar>(i,j)) - int(mean.at<uchar>(i,j)) <= c)
+					dst.at<uchar>(i,j) = 255;
+				else
+					dst.at<uchar>(i,j) = 0;
+			}
 		}
 }
 
@@ -237,6 +247,7 @@ Mat  findCircleMask(const Mat& _src)
 	//pyrDown(src, src);
 	//pyrDown(src, src);
 	threshold(src, src, 0, 255, THRESH_BINARY | CV_THRESH_OTSU);
+	//threshold(src, src, 100,255, THRESH_BINARY);
 	Mat	binary_src = src.clone();
 	Mat flood_binary_src = src.clone();
 	Mat flood_binary_src_withCircleSeedPoints = src.clone();
@@ -322,6 +333,7 @@ Mat  findCircleMask(const Mat& _src)
 
 	for (int i = 0; i != seedPoints.size(); ++i)
 	{
+		//if(flood_binary_src.at<uchar>(seedPoints[i].y,seedPoints[i].x) == 0);
 		floodFill(flood_binary_src, seedPoints[i], Scalar(255, 255, 255));
 	}
 #ifdef debug
@@ -358,8 +370,8 @@ Mat  findCircleMask(const Mat& _src)
 //***********************************************************************************
 
 //**********************according convexHull to get mask*****************************
-	//Mat pic_disCopy = pic_dis.clone();
-	Mat pic_disCopy = get_pic_dis_withCircleSeedPoints(ans,flood_binary_src_withCircleSeedPoints);
+	Mat pic_disCopy = pic_dis.clone();
+	//Mat pic_disCopy = get_pic_dis_withCircleSeedPoints(ans,flood_binary_src_withCircleSeedPoints);
 	vector< vector<Point> > convexHullcont;
 	vector<Vec4i> hierarchy;
 	findContours(pic_disCopy,convexHullcont,hierarchy,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
@@ -424,7 +436,8 @@ Mat findThreshResult(Mat src,Mat mask)
 #endif
 	//adaptiveThreshold(and_img, and_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 7, -3);
 	Mat adaptiveThresholdResult = Mat::zeros(src.size(),CV_8UC1);
-	my_adaptiveThreshold(and_img,adaptiveThresholdResult,7,7,3);
+	//my_adaptiveThreshold(and_img,adaptiveThresholdResult,11,11,3);
+	adaptiveThreshold(and_img,adaptiveThresholdResult,255,ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,11,-3);
 	Mat res;
 	erode(mask, mask, Mat());
 	erode(mask, mask, Mat());
@@ -444,9 +457,20 @@ void process(char** argv)
 	Mat src = imread(argv[1], 0);
 	//pyrDown(src, src);
 	//pyrDown(src, src);
+	double t1 = (double)getTickCount();
 	Mat mask = findCircleMask(src);
+	t1 = ((double)getTickCount() - t1)/getTickFrequency();
+	cout <<"program timeGetMask = " << t1*1000.0 << "ms" << endl;
+
+	double t2 = (double)getTickCount();
 	Mat threshResult = findThreshResult(src,mask);
+	t2 = ((double)getTickCount() - t2)/getTickFrequency();
+	cout <<"program timeThreshold = " << t2*1000.0 << "ms" << endl;
+
+	double t3 = (double)getTickCount();
 	DetectDefect(src,mask,threshResult);
+	t3 = ((double)getTickCount() - t3)/getTickFrequency();
+	cout <<"program timeCounting = " << t3*1000.0 << "ms" << endl;
 }
 
 // Mat getRidOfBoundsMask(Mat& src)
