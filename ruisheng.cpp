@@ -8,14 +8,18 @@ using namespace cv;
 
 #define debug
 #define PI 3.1415926
+#define providing
 
 
 // string fold_path = "./1124/";
 // string img_name = "1.bmp";
 // string img_path = fold_path + img_name;
 string write_path = "../Camera-lens-glassFiles/save/";
+string providing_path = "../Camera-lens-glassFiles/providingPics/";
+string pic_name;
 const double LenOfRoi =1.3527;//ROI区域的直径为1.3527毫米
 double LenOfOnePixel = 0;
+double len_onePixel = 3.63;//像素当量3.63微米
 
 struct area_pos
 {
@@ -63,19 +67,18 @@ int DetectDefect(Mat src,Mat mask,Mat res_thre){
   // erode(mask,mask,Mat());
   // erode(mask,mask,Mat());
   // erode(mask,mask,Mat());
-
-  //Mat res_thre_out = res_thre&mask;
-  Mat res_thre_out = res_thre;
+  cvtColor(mask,mask,CV_BGR2GRAY);
+  Mat res_thre_out = res_thre.clone();
 #ifdef debug
   imshow("result",res_thre_out);
-  imwrite(write_path + "thre.bmp",res_thre_out);
+  imwrite(write_path +"thre.bmp",res_thre_out);
   waitKey();
 #endif
 
   vector<vector<Point> > contours;
   vector<Vec4i> hierarchy;
   findContours(res_thre_out,contours,hierarchy,CV_RETR_CCOMP,CV_CHAIN_APPROX_NONE );
-  cout<<contours.size()<<endl;
+  //cout<<contours.size()<<endl;
 
   if(!contours.size())
     { cout<< "no defect " << endl;
@@ -87,10 +90,10 @@ int DetectDefect(Mat src,Mat mask,Mat res_thre){
 
     for( int i = 0; i != contours.size(); ++i ){ 
       minRect[i] = minAreaRect( Mat(contours[i]) );
-      if(contourArea(contours[i]) < 1)
+      if(contourArea(contours[i]) < 3)
        
-	flags[i] = 0;
-    }
+    	flags[i] = 0;
+     }
     if( !countNonZero(Mat(flags)) )
       { cout<< "no defect again " << endl;
 	return -1;
@@ -105,6 +108,7 @@ int DetectDefect(Mat src,Mat mask,Mat res_thre){
       cv::drawContours(res_thre_out, DefectContours, -1, Scalar::all(255), CV_FILLED);
 #ifdef debug
       imshow("DefectContours",res_thre_out);
+      imwrite(write_path +"DefectContours.bmp",res_thre_out);
       waitKey();
 #endif
       vector<area_pos> area(DefectContours.size());
@@ -112,7 +116,8 @@ int DetectDefect(Mat src,Mat mask,Mat res_thre){
       double sum_piexl = 0;
       for(size_t i = 0; i != DefectContours.size(); i++)
 	{
-	  area[i].areaValue=(double)contourArea(DefectContours[i])*LenOfOnePixel*LenOfOnePixel*4.0;
+	  //area[i].areaValue=(double)contourArea(DefectContours[i])*LenOfOnePixel*LenOfOnePixel*4.0;
+	  area[i].areaValue=(double)contourArea(DefectContours[i])*len_onePixel*len_onePixel;
 	  sum_piexl+=area[i].areaValue;
 	  area[i].index = i;
 	  //cout << "defect_area : "<<area[i]<<endl;
@@ -123,32 +128,47 @@ int DetectDefect(Mat src,Mat mask,Mat res_thre){
 	}
       //cout<<"缺陷总面积占检测区域比例:" <<sum_piexl/(PI*LenOfRoi*1000/2*LenOfRoi*1000/2)*100<<"%"<<endl;
       sort(area.begin(),area.end(),comp);
-      for(int i = 0;i<10;++i)
+      
+      int ShowTop10 = DefectContours.size() <10 ? DefectContours.size() : 10;
+      vector<Rect> showRectTop10(ShowTop10);
+      for(int i = 0; i<ShowTop10; ++i)
 	{
+	  cout << i+1 <<endl;
 	  cout << "defect_area = " << area[i].areaValue<<endl;
-	   RotatedRect rect_ori = minAreaRect(Mat(DefectContours[area[i].index]));
-	   cout << "defect_size : ("<<rect_ori.size.height*LenOfOnePixel*2.0<<" , "<< rect_ori.size.width*LenOfOnePixel*2.0<<")" <<endl;
-	   cout<<endl;
+	  RotatedRect rect_ori = minAreaRect(Mat(DefectContours[area[i].index]));
+	   showRectTop10[i]=rect_ori.boundingRect();
+	   showDefect(resultShow, showRectTop10[i], Scalar(0,255,255),i+1);
+	  //cout << "defect_size : ("<<rect_ori.size.height*LenOfOnePixel*2.0<<" , "<< rect_ori.size.width*LenOfOnePixel*2.0<<")" <<endl;
+	  cout << "defect_size : ("<<rect_ori.size.height*len_onePixel<<" , "<< rect_ori.size.width*len_onePixel<<")" <<endl;
+	  cout<<endl;
 	}
       for (size_t i = 0; i < DefectContours.size(); ++i)
-	{
-	  showDefect(resultShow, showRect[i], Scalar(0,255,255),area[i].areaValue);
-	}
+      	{ 
+	  Point p1,p2;
+	  p1.x = showRect[i].x;
+	  p1.y = showRect[i].y;
+	  p2.x = p1.x + showRect[i].width;
+	  p2.y = p1.y + showRect[i].height;
+	  cv:: rectangle(resultShow,p1,p2,Scalar(0,255,255));
+      	  //showDefect(resultShow, showRect[i], Scalar(0,255,255),area[i].areaValue);
+           	}
       cout << "defect_num = " << DefectContours.size()<<endl;	
-      cout<<"Defect/AllArea = " <<sum_piexl/(PI*LenOfRoi*1000/2*LenOfRoi*1000/2)*100<<"%"<<endl;
+      //cout<<"Defect/AllArea = " <<sum_piexl/(PI*LenOfRoi*1000/2*LenOfRoi*1000/2)*100<<"%"<<endl;
+      cout<<"Defect/AllArea = " <<sum_piexl/(len_onePixel*len_onePixel)/countNonZero(mask)*100<<"%"<<endl;
     }
      
 #ifdef debug
     imshow("resultShow",resultShow);
-    imwrite(write_path + "result_.bmp",resultShow);
+    imwrite(write_path +"result_.bmp",resultShow);
     waitKey();
 #endif
-
+#ifdef providing
+    imwrite(providing_path + "result_" + pic_name ,resultShow);
+#endif
   }
   return 0;
 
 }
-
 
 void my_boxFilter(Mat src, Mat& mean,int blockWidth,int blockHeight)
 {
@@ -358,7 +378,7 @@ Mat  findCircleMask(const Mat& _src)
 	Mat ans = canvas.clone();
 	drawContours(canvas, cont, -1, Scalar(255, 255, 255));
 	minEnclosingCircle(cont[0], enclosing_cecter, enclosing_radius);
-	cout << "enclosing_radius" << enclosing_radius << endl;
+	cout << "enclosing_radius" << len_onePixel * enclosing_radius << endl;
 	circle(ans, enclosing_cecter, enclosing_radius, Scalar(255, 255, 255), -1, 8, 0);
 	threshold(ans, ans, 150, 255, THRESH_BINARY);
 #ifdef debug
@@ -452,9 +472,25 @@ Mat findThreshResult(Mat src,Mat mask)
 	return res;
 }
 
+string seprateName(const string& s)
+{
+	string ans;
+	for(int i = s.size() - 1; i >= 0; --i)
+	{
+		if(s[i] == '/')
+			break;
+		ans.push_back(s[i]);
+	}
+	reverse(ans.begin(),ans.end());
+	return ans;
+}
+
+
 void process(char** argv)
 {
 	Mat src = imread(argv[1], 0);
+	pic_name = seprateName(string(argv[1]));
+	cout<<pic_name<<endl;
 	//pyrDown(src, src);
 	//pyrDown(src, src);
 	double t1 = (double)getTickCount();
