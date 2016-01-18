@@ -77,7 +77,7 @@ int DetectDefect(Mat src,Mat mask,Mat res_thre){
 
   vector<vector<Point> > contours;
   vector<Vec4i> hierarchy;
-  findContours(res_thre_out,contours,hierarchy,CV_RETR_CCOMP,CV_CHAIN_APPROX_NONE );
+  findContours(res_thre_out,contours,hierarchy,CV_RETR_EXTERNAL,CV_CHAIN_APPROX_NONE );
   //cout<<contours.size()<<endl;
 
   if(!contours.size())
@@ -90,7 +90,7 @@ int DetectDefect(Mat src,Mat mask,Mat res_thre){
 
     for( int i = 0; i != contours.size(); ++i ){ 
       minRect[i] = minAreaRect( Mat(contours[i]) );
-      if(contourArea(contours[i]) < 3)
+      if(contourArea(contours[i]) < 1)
        
     	flags[i] = 0;
      }
@@ -139,7 +139,7 @@ int DetectDefect(Mat src,Mat mask,Mat res_thre){
 	   showRectTop10[i]=rect_ori.boundingRect();
 	   showDefect(resultShow, showRectTop10[i], Scalar(0,255,255),i+1);
 	  //cout << "defect_size : ("<<rect_ori.size.height*LenOfOnePixel*2.0<<" , "<< rect_ori.size.width*LenOfOnePixel*2.0<<")" <<endl;
-	  cout << "defect_size : ("<<rect_ori.size.height*len_onePixel<<" , "<< rect_ori.size.width*len_onePixel<<")" <<endl;
+	  cout << "defect_size : ("<<(rect_ori.size.height + 2) *len_onePixel<<" , "<< ( rect_ori.size.width + 2)*len_onePixel<<")" <<endl;
 	  cout<<endl;
 	}
       for (size_t i = 0; i < DefectContours.size(); ++i)
@@ -266,8 +266,8 @@ Mat  findCircleMask(const Mat& _src)
 	src = _src.clone();
 	//pyrDown(src, src);
 	//pyrDown(src, src);
-	threshold(src, src, 0, 255, THRESH_BINARY | CV_THRESH_OTSU);
-	//threshold(src, src, 100,255, THRESH_BINARY);
+	//threshold(src, src, 0, 255, THRESH_BINARY | CV_THRESH_OTSU);
+	threshold(src, src, 100,255, THRESH_BINARY);
 	Mat	binary_src = src.clone();
 	Mat flood_binary_src = src.clone();
 	Mat flood_binary_src_withCircleSeedPoints = src.clone();
@@ -436,6 +436,13 @@ void getRidOfThreshEdges(Mat& thresholdResult)
 	return;
 }
 
+void erodeLoop(Mat& pic,int looptime)
+{
+	for(int i = 0; i <= looptime; ++i)
+		erode(pic,pic,Mat());
+	return;
+}
+
 Mat findThreshResult(Mat src,Mat mask)
 {
 	cvtColor(mask, mask, CV_BGR2GRAY);
@@ -455,14 +462,21 @@ Mat findThreshResult(Mat src,Mat mask)
 	imshow("seg_img", and_img);
 #endif
 	//adaptiveThreshold(and_img, and_img, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 7, -3);
+	Mat adaptiveThresholdResult1 = Mat::zeros(src.size(),CV_8UC1);
+	Mat adaptiveThresholdResult2 = Mat::zeros(src.size(),CV_8UC1);
+	//my_adaptiveThreshold(and_img,adaptiveThresholdResult,11,11,-3);
+	adaptiveThreshold(and_img,adaptiveThresholdResult1,255,ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,11,-5);
+	adaptiveThreshold(and_img,adaptiveThresholdResult2,255,ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY_INV,11,5);
 	Mat adaptiveThresholdResult = Mat::zeros(src.size(),CV_8UC1);
-	//my_adaptiveThreshold(and_img,adaptiveThresholdResult,11,11,3);
-	adaptiveThreshold(and_img,adaptiveThresholdResult,255,ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY,11,-3);
+	adaptiveThresholdResult = adaptiveThresholdResult1 | adaptiveThresholdResult2;
 	Mat res;
-	erode(mask, mask, Mat());
-	erode(mask, mask, Mat());
+	// erode(mask, mask, Mat());
+	// erode(mask, mask, Mat());
+	erodeLoop(mask,20);
 	bitwise_and(adaptiveThresholdResult, mask, res);
 #ifdef debug
+	//dilate(adaptiveThresholdResult,adaptiveThresholdResult,Mat());
+	//dilate(res,res,Mat());
 	imshow("and_img", adaptiveThresholdResult);
 	imwrite(write_path + "and_img_1.bmp",adaptiveThresholdResult);
 	imwrite(write_path + "and_img.bmp",res);
