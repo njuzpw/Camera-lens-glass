@@ -19,7 +19,7 @@ string providing_path = "../Camera-lens-glassFiles/providingPics/";
 string pic_name;
 const double LenOfRoi =1.3527;//ROI区域的直径为1.3527毫米
 double LenOfOnePixel = 0;
-double len_onePixel = 3.63;//像素当量3.63微米
+double len_onePixel = 3.45;//像素当量3.63微米
 
 struct area_pos
 {
@@ -255,6 +255,7 @@ Mat get_pic_dis_withCircleSeedPoints(Mat res, Mat orign)
 #ifdef debug
 	imshow("get_pic_dis_withCircleSeedPoints",pic_dis);
 	imwrite(write_path + "get_pic_dis_withCircleSeedPoints.bmp", pic_dis);	
+	imwrite(write_path + "circle_seedPoints_floodresult.bmp", orign);
 #endif
 	return pic_dis;
 }
@@ -266,8 +267,8 @@ Mat  findCircleMask(const Mat& _src)
 	src = _src.clone();
 	//pyrDown(src, src);
 	//pyrDown(src, src);
-	//threshold(src, src, 0, 255, THRESH_BINARY | CV_THRESH_OTSU);
-	threshold(src, src, 100,255, THRESH_BINARY);
+	threshold(src, src, 0, 255, THRESH_BINARY | CV_THRESH_OTSU);
+	//threshold(src, src, 100,255, THRESH_BINARY);
 	Mat	binary_src = src.clone();
 	Mat flood_binary_src = src.clone();
 	Mat flood_binary_src_withCircleSeedPoints = src.clone();
@@ -386,12 +387,12 @@ Mat  findCircleMask(const Mat& _src)
 	//imshow("ans", ans);
 #endif
 	//show(seedPoints);
-	//return ans;
+	return ans;
 //***********************************************************************************
 
 //**********************according convexHull to get mask*****************************
 	Mat pic_disCopy = pic_dis.clone();
-	//Mat pic_disCopy = get_pic_dis_withCircleSeedPoints(ans,flood_binary_src_withCircleSeedPoints);
+	pic_disCopy = get_pic_dis_withCircleSeedPoints(ans,flood_binary_src_withCircleSeedPoints);
 	vector< vector<Point> > convexHullcont;
 	vector<Vec4i> hierarchy;
 	findContours(pic_disCopy,convexHullcont,hierarchy,CV_RETR_TREE,CV_CHAIN_APPROX_SIMPLE, Point(0, 0));
@@ -469,10 +470,12 @@ Mat findThreshResult(Mat src,Mat mask)
 	adaptiveThreshold(and_img,adaptiveThresholdResult2,255,ADAPTIVE_THRESH_MEAN_C,THRESH_BINARY_INV,11,5);
 	Mat adaptiveThresholdResult = Mat::zeros(src.size(),CV_8UC1);
 	adaptiveThresholdResult = adaptiveThresholdResult1 | adaptiveThresholdResult2;
+	//dilate(adaptiveThresholdResult,adaptiveThresholdResult,Mat());
+	//erode(adaptiveThresholdResult,adaptiveThresholdResult,Mat());
 	Mat res;
 	// erode(mask, mask, Mat());
 	// erode(mask, mask, Mat());
-	erodeLoop(mask,20);
+	erodeLoop(mask,4);
 	bitwise_and(adaptiveThresholdResult, mask, res);
 #ifdef debug
 	//dilate(adaptiveThresholdResult,adaptiveThresholdResult,Mat());
